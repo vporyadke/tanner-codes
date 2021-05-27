@@ -55,6 +55,15 @@ def find_generating_set(p, q):
 # We will consider A a canoncial representation of a projective linear map if
 # the first nonzero value of A.flatten() is 1
 
+def power(a, n, mod):
+    if n == 0:
+        return 1
+    r = power(a, n // 2, mod)
+    return r * r * (a if n % 2 != 0 else 1) % mod
+
+def inverse(a, mod):
+    return power(a, mod - 2, mod)
+
 # writes all elements of PGL(2, Z_q) as quadruples into the given file
 def write_pgl(q, filename):
     def nxt(A):
@@ -65,26 +74,24 @@ def write_pgl(q, filename):
                 break
             j += 1
 
+    cur = 0
+    psl = []
     f = open(filename, "w")
     for i in range(2):
         A = np.zeros((4), dtype=int)
         A[i] = 1
         while True:
-            if round(np.linalg.det(A.reshape((2, 2)))) % q != 0:
+            d = round(np.linalg.det(A.reshape((2, 2)))) % q 
+            if d != 0:
                 print(*A, file=f)
+                if power(d, (q - 1) // 2, q) == 1:
+                    psl.append(cur)
+                cur += 1
             nxt(A)
             if A[i] != 1:
                 break
+    print(*psl, file=f)
     f.close()
-
-def power(a, n, mod):
-    if n == 0:
-        return 1
-    r = power(a, n // 2, mod)
-    return r * r * (a if n % 2 != 0 else 1) % mod
-
-def inverse(a, mod):
-    return power(a, mod - 2, mod)
 
 def make_canon(A, q):
     f = A[0, 0] if A[0, 0] != 0 else A[0, 1]
@@ -106,22 +113,26 @@ def get_inverses(s, q):
     return pi
 
 # writes graph in the following format:
-# 0th line is the inversion permutation
-# line i + 1 is the list of vertices adjacent to vertex i
+# the inversion permuation
+# numbers of elements that are in PSL
+# adjacency list, one line per vertex
 def write_graph(p, q, pgl_file, filename):
     getNum = dict()
     pgl = []
     fin = open(pgl_file, "r")
-    for line in fin.readlines():
+    for i in range(q * (q ** 2 - 1)):
+        line = fin.readline()
         a = tuple(map(int, line.split()))
         getNum[a] = len(pgl)
         pgl.append(np.array(a).reshape((2, 2)))
+    psl = list(map(int, fin.readline().split()))
     fin.close()
 
     fout = open(filename, "w")
     s = find_generating_set(p, q)
     inv = get_inverses(s, q)
     print(*inv, file=fout)
+    print(*psl, file=fout)
     for u in pgl:
         adj = []
         for edge in s:
